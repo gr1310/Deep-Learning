@@ -170,6 +170,9 @@ until it generates real-like data.
 
 **GenAI:** A model that can create new content/data by learning from existing data.
 
+> Positional encoding provides information about the relative positions of tokens within input sequences, aiding in capturing token relationships
+> Sine and cosine functions are commonly used in the formulation of positional encoding in transformers.
+
 **How does it know what type of data to create?**  
 → It depends on the prompt.
 
@@ -230,7 +233,13 @@ Each output vector (`y1, y2, ...`) now knows its own meaning and its importance 
 
 > At this stage, we still don't have any trainable parameters like weights or biases.
 
-#### Scaled Dot Product Attention
+### Scaled Dot Product Attention
+
+---
+
+#### Single-Headed Self-Attention Model
+
+![Single-Headed Self-Attention](image-6.png)
 
 **Q, K, V**: Query, Key, Value  
 These concepts come from database and dictionary design.
@@ -270,9 +279,219 @@ These allow the model to learn meaningful transformations.
 
 > Q, K, and V are usually projected into a lower-dimensional space (`dk < dmodel`) to reduce computation cost.
 
+**Why is it called single-headed?**  
+Because it uses **only one set of weight matrices**:
+
+- **W<sub>q</sub>** (Query)
+- **W<sub>k</sub>** (Key)
+- **W<sub>v</sub>** (Value)
+
+This means the model captures attention from **a single perspective**.
+
+---
+
 #### Masking
 
 - **Optional**, and only applied in decoders.
 - Masking is used during score calculation to prevent a word from attending to future words.
 - Compatibility scores for future positions are set to **-∞**.
 - During softmax, these get reduced to **zero**, so the current word doesn’t “see” the next one.
+
+---
+
+#### Multi-Headed Attention
+
+![](image-7.png)
+
+To understand a word from **multiple perspectives**—such as:
+
+- **Grammatical role** (noun, verb, adjective)
+- **Semantic meaning** (literal or contextual)
+- **Position in sentence**
+
+...we use **Multi-Headed Attention**.
+
+In that case:
+
+- We use **multiple sets of weights**, which means we get multiple values of `Q`, `K`, and `V`.
+- It's like having **multiple single-headed self-attention layers**, each capturing a different viewpoint.
+- The outputs from all these heads are **concatenated**.
+- This concatenated output is then passed through a **linear layer** to combine all the learned insights.
+
+So instead of just one perspective (single head), the model learns from **many perspectives in parallel**.
+
+---
+
+### Transformers
+
+Transformers are based on an **encoder-decoder mechanism** for sequence modeling tasks like language translation.
+
+```
+Input -> [Encoder, Decoder] (transformer) -> Generative pre-trained -> output
+```
+
+---
+
+#### Example: Language Translation
+
+Transformers can translate text from language X to language Y:
+
+- Provide **X** as input to the **Encoder**
+- Provide **Y** (previous output/target text) to the **Decoder**
+- The model generates the translated output step-by-step
+
+---
+
+#### Input Embedding Pipeline
+
+Transformers require numerical input, so we follow a series of steps:
+
+1. **Tokenization**
+
+   - Converts a sentence into individual tokens (words, subwords, or symbols)
+
+2. **Vocabulary Creation**
+
+   - Creates a fixed index for all tokens in the language
+
+3. **Normalization**
+
+   - Often avoided in NLP, because scaling down values may reduce the semantic importance of rare but meaningful words
+
+4. **Embedding**
+   - Maps each token to a dense vector (of fixed dimension) that captures semantic meaning
+
+---
+
+#### Why Transformers Are Fast
+
+- Unlike RNNs that process tokens **sequentially**, transformers can **process all tokens in parallel**
+- Input sentences are passed as **a batch of vectors** to the model all at once
+
+This parallelism makes transformers ideal for handling long sequences efficiently.
+
+---
+
+#### Positional Encoding
+
+Transformers can process data **in parallel**, not sequentially.  
+The words in a sentence are converted into **vectors**, but what about **positional information**?
+
+**Why Not Just Use Indexing?**
+
+- Using simple indexing would assign large values to later words.
+- This might make the model think that **later words are more important**.
+- Hence, we avoid **dependency on sentence length**.
+
+Instead, we use **positional vectors** of the **same size** as embedding vectors (e.g., 512).
+
+#### Final Embedded Vector
+
+```
+Final embedded vector = position + embedding vector
+```
+
+---
+
+## How is the Positional Vector Calculated?
+
+We use **trigonometric functions** to encode position:
+
+- For **even indices (2i)**:  
+  `PE(pos, 2i) = sin(pos / 10000^(2i/d))`
+
+- For **odd indices (2i+1)**:  
+  `PE(pos, 2i+1) = cos(pos / 10000^(2i/d))`
+
+Where:
+
+- `pos` = actual position in the sentence
+- `i` = index of the embedding dimension
+- `d` = total embedding dimension
+
+> 💡 **Why alternating sin and cos?**  
+> To prevent the entire positional vector from becoming zero and to capture **patterned variations** in positions.
+
+---
+
+## In the Encoder
+
+1. Final embedded vector goes into a **Self-Attention** mechanism.
+2. Self-attention computes the importance of each word **relative to others**.
+3. Then we apply **normalization** to remove biases present in the input.
+
+---
+
+## In the Decoder
+
+- We use **Masked Multi-Head Attention** to **prevent predicting future words**.
+- It ensures that output depends only on **past tokens and the encoder’s output**.
+
+---
+
+## ![gfg-image](image-8.png)
+
+---
+
+# GPT Models
+
+**GPT**: Generative Pre-trained Transformers  
+These models generate **human-like text**.
+
+---
+
+## GPT-2 (2018–19)
+
+- Trained only on **internet data**
+- First large-scale generative model
+
+### Variants:
+
+| Model  | Parameters | Transformer Layers | Dimension |
+| ------ | ---------- | ------------------ | --------- |
+| Small  | 117M       | 12                 | 768       |
+| Medium | 345M       | 24                 | 1024      |
+| Large  | 762M       | 36                 | 1280      |
+| XL     | 1.5B       | 48                 | 1600      |
+
+### Use Cases:
+
+- Text generation
+- Text summarization
+- Translation
+- Question answering
+- Code generation
+
+---
+
+## GPT-3 (2020)
+
+- Up to **175B parameters**
+- Max transformer layers: **96**
+- Max dimensionality: **12,288**
+- Trained on broader and more recent internet and domain-specific data
+- Outputs are more **context-aware and semantically meaningful**
+- Available as an **API** for fine-tuning
+
+---
+
+## GPT-4
+
+- **Multimodal language model**
+- Can process **text, images, videos, and audios**
+- Supports very long contexts and better alignment with user intent
+
+---
+
+## Top 10 Topics To Cover Next
+
+1. Weight initialization methods like Xavier and He
+2. Residual Networks (ResNet) and skip connections
+3. Attention mechanisms — soft and hard attention
+4. Transformer architecture — self-attention, multi-head attention, positional encoding
+5. Training stabilization techniques — gradient clipping, learning rate scheduling, early stopping
+6. Data augmentation — vision and NLP-specific methods
+7. Evaluation metrics for NLP — BLEU, ROUGE, Perplexity
+8. Autoencoders and variants — denoising, sparse, variational (VAE)
+9. GANs — generator-discriminator framework and training tricks
+10. Self-supervised and contrastive learning — SimCLR, BYOL, MoCo
